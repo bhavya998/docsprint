@@ -1,0 +1,1 @@
+"""Background workers — RQ-based document processing."""

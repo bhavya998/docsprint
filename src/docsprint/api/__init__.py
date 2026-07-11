@@ -1,0 +1,1 @@
+"""API routes — REST endpoints under /api/v1/."""
