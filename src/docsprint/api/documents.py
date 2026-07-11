@@ -24,8 +24,9 @@ from docsprint.services.document_service import (
     is_supported_format,
     save_upload,
 )
-from docsprint.services.job_service import create_job, get_job_by_document
-from docsprint.services.usage_service import check_quota, get_plan_pages_limit
+from docsprint.config import settings
+from docsprint.services.job_service import create_job, get_job_by_document, update_job_status
+from docsprint.services.usage_service import check_quota, get_plan_pages_limit, increment_usage
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -88,18 +89,19 @@ def upload_document(
     db.commit()
     db.refresh(document)
 
-    # Deduct pages from usage quota at upload time
-    from docsprint.services.usage_service import increment_usage
-
     increment_usage(db, current_user.id, page_count)
 
-    # Create and enqueue job
+    # Create job
     job = create_job(db, document, mode, prompt)
+
+    # DEV_MODE: process synchronously (no Redis/worker needed)
+    if settings.DEV_MODE:
+        _process_sync(db, document, job, file_path, mode, prompt)
 
     return DocumentUploadResponse(
         document_id=document.id,
         job_id=job.id,
-        status="queued",
+        status=document.status,
     )
 
 
@@ -189,3 +191,42 @@ def get_document(
         result=result,
         error=error,
     )
+
+
+def _process_sync(
+    db: Session,
+    document: Document,
+    job,
+    file_path: str,
+    mode: str,
+    prompt: str | None = None,
+) -> None:
+    """Process a document synchronously (DEV_MODE fallback — no Redis needed)."""
+    import json
+    import time
+    from datetime import datetime, timezone
+
+    from docsprint.services.model_service import VLModelService
+
+    update_job_status(db, job, "processing")
+
+    try:
+        model = VLModelService()
+        result = model.process_document(file_path, mode, prompt or "")
+
+        update_job_status(
+            db,
+            job,
+            "completed",
+            result_json=result,
+            processing_time_seconds=result.get("processing_time_seconds", 0),
+        )
+        document.status = "completed"
+        document.completed_at = datetime.now(timezone.utc)
+        db.commit()
+    except Exception as exc:
+        update_job_status(
+            db, job, "failed", error=f"{type(exc).__name__}: {exc}"
+        )
+        document.status = "failed"
+        db.commit()

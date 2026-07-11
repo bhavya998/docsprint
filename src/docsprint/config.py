@@ -45,6 +45,12 @@ class Settings(BaseSettings):
     MODEL_ID: str = "Qwen/Qwen3.5-0.8B"
     MODEL_QUANTIZE_4BIT: bool = True
 
+    # --- Environment ---
+    DEV_MODE: bool = False  # When True, process documents synchronously (no Redis worker needed)
+    RATE_LIMIT_ENABLED: bool = True
+    FREE_RATE_LIMIT: int = 100  # requests per minute
+    PRO_RATE_LIMIT: int = 1000
+
     # --- CORS ---
     CORS_ORIGINS: str = "http://localhost:3000"
 
