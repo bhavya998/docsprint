@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
+
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from docsprint.models.usage import UsageRecord
+
+NOW = datetime.now(timezone.utc)
 
 
 class TestUsage:
@@ -29,8 +33,8 @@ class TestUsage:
         record = UsageRecord(
             user_id=test_user.id,
             pages_processed=7,
-            month=7,
-            year=2026,
+            month=NOW.month,
+            year=NOW.year,
         )
         db_session.add(record)
         db_session.commit()
@@ -72,8 +76,8 @@ class TestUsage:
         record = UsageRecord(
             user_id=test_user.id,
             pages_processed=10,  # exactly at the free tier limit
-            month=7,
-            year=2026,
+            month=NOW.month,
+            year=NOW.year,
         )
         db_session.add(record)
         db_session.commit()
