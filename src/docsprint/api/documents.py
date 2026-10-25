@@ -202,8 +202,6 @@ def _process_sync(
     prompt: str | None = None,
 ) -> None:
     """Process a document synchronously (DEV_MODE fallback — no Redis needed)."""
-    import json
-    import time
     from datetime import datetime, timezone
 
     from docsprint.services.model_service import VLModelService

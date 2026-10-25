@@ -7,14 +7,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN pip install --no-cache-dir uv
 
-COPY pyproject.toml uv.lock* ./
-RUN uv sync --no-dev 2>/dev/null || uv sync
+# Dependencies first so the heavy torch layer is cached, then the project.
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev --no-install-project
 
+COPY SPEC.md ./
 COPY src/ src/
+RUN uv sync --frozen --no-dev
+
 COPY alembic.ini ./
 COPY alembic/ alembic/
 
+ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH=/app/src
 EXPOSE 8000
 
-CMD ["sh", "-c", "uv run alembic upgrade head && uv run uvicorn docsprint.main:app --host 0.0.0.0 --port 8000"]
+CMD ["sh", "-c", "alembic upgrade head && uvicorn docsprint.main:app --host 0.0.0.0 --port 8000"]
